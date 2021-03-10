@@ -1,0 +1,183 @@
+---
+title: "Time Series FInal Project"
+author: "Truc Le"
+date: "3/8/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS)
+chicago <- read.csv("chicago.csv")
+```
+
+```{r, echo=FALSE}
+trndseas=function(y,seas,lam,degtrnd){
+  
+# requires the R-package 'pracma'
+  
+# fits  a trend plus seasonal for the "best" Box-Cox 
+# transformation.
+  
+# input: y, observed series; seas, seasons
+  
+# input: lam, the grid of Box-Cox transformations (lambda values)
+  
+# input: degtrnd, degree of the polynomial trend, if
+# degtrnd=0, then the fitted trend is constant.
+  
+# output:  coef, regression coefficients - the
+# first degtrnd+1 values for the trend part and the
+# rest associated with the seasonals
+  
+# output: fit, fitted y-values; res, residuals,
+  
+# output: trend, fitted trend; season, fitted seasonals
+  
+# output: rsq, adjusted r-square values for different lambda in the
+  
+# output: lamopt, the value of lambda (among those supplied 
+# in the vector lam) at which r-square is maximum.
+
+m=length(lam)
+n=length(y)
+
+# Part of design matrix for estimating trend
+if(degtrnd>0) {
+   tm=seq(1/n,1,by=1/n)
+   x1=poly(tm,degree=degtrnd,raw=TRUE)
+   x1=cbind(rep(1,n),x1)
+   } else {
+    x1=as.matrix(rep(1,n),ncol=1)
+   }
+
+# Part of design matrix for estimating seasonality
+x2=NULL
+if(seas>1){
+sn=rep(1:seas,length.out=n)
+x2=factor(sn,levels=unique(sn),ordered=TRUE)
+x2=model.matrix(~x2-1)
+m2=ncol(x2)
+m21=m2-1
+x2=x2[,1:m21]-matrix(rep(x2[,m2],m21),ncol=m21,nrow=nrow(x2),byrow=F)
+}
+
+x=cbind(x1,x2)  # design matrix
+
+xx=t(x)%*%x
+rsq=rep(1,m)
+m1=ncol(x1)     #degtrnd+1
+m11=m1+1
+mx=ncol(x)      # degtrnd+1+seas-1
+
+for(i in 1:m) {
+  if (lam[i]==0) {
+    yt=log(y)
+  } else {
+    yt=y^lam[i]
+   }
+  xy=t(x)%*%yt
+  coef=solve(xx,xy)
+  fit=x%*%coef
+  res=yt-fit
+  ssto=(n-1)*var(yt)
+  sse=t(res)%*%res
+  rsq[i]=1-((n-1)/(n-mx))*sse/ssto
+  }
+
+  ii=which.max(rsq)
+  lamopt=lam[ii]
+  if (lamopt==0) {
+    yt=log(y)
+  } else {
+    yt=y^lamopt
+   }
+  xy=t(x)%*%yt
+  coef=solve(xx,xy)
+  fit=x%*%coef
+  trnd=x1%*%coef[1:m1]
+  season=NULL
+  if(seas>1){
+  season=c(coef[m11:mx],-sum(coef[m11:mx]))
+  }
+  res=yt-fit
+
+  result=list(coef=coef,fitted=fit,trend=trnd,residual=res,season=season,rsq=rsq,lamopt=lamopt)
+  return(result)
+}
+  
+```
+
+```{r, echo=FALSE}
+y<-  chicago$reciepts
+tm<- 1:106
+seas <- 7
+lam=seq(-1,1,by=0.05)
+ff=trndseas(chicago$reciepts,seas,lam,3)
+rsq=ff$rsq
+ff=trndseas(chicago$reciepts,seas,-0.5,3)
+trend=ff$trend
+season=ff$season
+fit=ff$fit
+tm=1:106
+Day=1:7
+
+par(mfrow=c(2,2))
+plot(lam,rsq,type="l",xlab="Lambda",ylab="R-sq",main="Average Ticket sales: R-square")
+{plot.ts(1/y^0.1,ylab="",main='Plot: 1/sqrt(y), trend and fit')
+points(tm,fit,type='l',lty=2)
+points(tm,trend,type='l')
+legend(175,0.070, c("data","trend","fit"), lty=c(1,1,2))}
+plot(Month,season,type='l',ylab='Seasonals',main='Seasonals for 1/sqrt(y)')
+
+
+
+```
+
+
+
+plot(tm, y, type = "l") ###just to see the trend visually
+trnd <-loess(y~tm, span = .20)
+
+{plot(tm, y, type = "l", lty = 1, xlab = "Time", ylab = " Average Receipts Per Day",main = "Average Receipts per theater versus time")
+
+points(tm, trnd$fitted,type = "l", lty = 2, col = "blue")
+
+legend("topleft", "loess", lty = 2, col = "blue")}
+
+ #X^hat against time
+ 
+ rough = trnd$residuals
+ plot(rough, type = "l", xlab = "Time", ylab = "Residuals", main = "Rough part")
+
+# calculate R-square
+ sse <-sum((trnd$residuals)^2)
+ ssto <-sum((y-mean(y))^2)
+ R2 <- 1-sse/ssto
+ R2
+
+{
+lny <-log(y)
+trndln <-loess(lny~tm, span = 0.25)#span=0.2!!!
+plot(tm, lny, type = "l", lty = 1, xlab = "Time", ylab = "Log crude oil production",main = "Log rude oil production versus time")
+points(tm, trndln$fitted,type = "l", lty = 2, col = "blue")
+legend("topleft", "loess", lty = 2, col = "blue")
+}
+ 
+ 
+plot(trndln$residuals, type = "l", xlab = "Time", ylab = "Residuals", main = "Rough part")
+ 
+ 
+sse1 <-sum((trndln$residuals)^2)
+ssto1 <-sum((lny-mean(lny))^2)
+R2ln <- 1-sse1/ssto1
+R2ln#higher R square
+
+
+par(mfrow=c(1,2))
+roughln = trndln$residuals
+hist(roughln, main = "Histogram of rough part", xlab = "Rough part")
+qqnorm(roughln, main = "Normal probability plot of Rough")
+qqline(roughln)
+
+```
