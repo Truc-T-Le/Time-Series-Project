@@ -13,7 +13,8 @@ chicago <- read.csv("chicago.csv")
 
 ```{r, echo=FALSE}
 trndseas=function(y,seas,lam,degtrnd){
-  
+
+    
 # requires the R-package 'pracma'
   
 # fits  a trend plus seasonal for the "best" Box-Cox 
@@ -109,75 +110,89 @@ for(i in 1:m) {
 ```
 
 ```{r, echo=FALSE}
+#3/4/5
 y<-  chicago$reciepts
 tm<- 1:106
 seas <- 7
 lam=seq(-1,1,by=0.05)
 ff=trndseas(chicago$reciepts,seas,lam,3)
 rsq=ff$rsq
-ff=trndseas(chicago$reciepts,seas,-0.5,3)
+ff=trndseas(chicago$reciepts,seas,0.1,3)
 trend=ff$trend
 season=ff$season
 fit=ff$fit
 tm=1:106
 Day=1:7
+plot(tm, y, type = "l")
 
 par(mfrow=c(2,2))
 plot(lam,rsq,type="l",xlab="Lambda",ylab="R-sq",main="Average Ticket sales: R-square")
-{plot.ts(1/y^0.1,ylab="",main='Plot: 1/sqrt(y), trend and fit')
-points(tm,fit,type='l',lty=2)
-points(tm,trend,type='l')
-legend(175,0.070, c("data","trend","fit"), lty=c(1,1,2))}
-plot(Month,season,type='l',ylab='Seasonals',main='Seasonals for 1/sqrt(y)')
+
+#fitted 
+{plot.ts(y^0.1,ylab="",main='Plot: y^0.1, trend and fit')
+points(tm,fit,type='l',lty=2, col="red")
+legend(175,0.070, c("data","fit"), lty=c(1,1,2))}
+
+#trend line 
+{plot.ts(y^0.1,ylab="",main='Plot: y^0.1, trend and fit')
+points(tm,trend,type='l', col="purple")
+legend(175,0.070, c("data","trend"), lty=c(1,1,2))}
+
+plot(Day,season,type='l',ylab='Seasonals',main='Seasonals for 1/y^0.1')
 
 
-
-```
-
-
-
-plot(tm, y, type = "l") ###just to see the trend visually
-trnd <-loess(y~tm, span = .20)
-
-{plot(tm, y, type = "l", lty = 1, xlab = "Time", ylab = " Average Receipts Per Day",main = "Average Receipts per theater versus time")
-
-points(tm, trnd$fitted,type = "l", lty = 2, col = "blue")
-
-legend("topleft", "loess", lty = 2, col = "blue")}
-
- #X^hat against time
- 
- rough = trnd$residuals
- plot(rough, type = "l", xlab = "Time", ylab = "Residuals", main = "Rough part")
-
-# calculate R-square
- sse <-sum((trnd$residuals)^2)
- ssto <-sum((y-mean(y))^2)
- R2 <- 1-sse/ssto
- R2
 
 {
-lny <-log(y)
-trndln <-loess(lny~tm, span = 0.25)#span=0.2!!!
-plot(tm, lny, type = "l", lty = 1, xlab = "Time", ylab = "Log crude oil production",main = "Log rude oil production versus time")
+lny <-(y)^0.1
+trndln <-loess(lny~tm, span = 0.25)
+plot(tm, lny, type = "l", lty = 1, xlab = "Time", ylab = "power of 0.1 daily average reciepts per theatre",main = "power of 0.1 daily average reciepts per theatre versus time")
 points(tm, trndln$fitted,type = "l", lty = 2, col = "blue")
 legend("topleft", "loess", lty = 2, col = "blue")
 }
- 
- 
+
 plot(trndln$residuals, type = "l", xlab = "Time", ylab = "Residuals", main = "Rough part")
- 
- 
-sse1 <-sum((trndln$residuals)^2)
-ssto1 <-sum((lny-mean(lny))^2)
-R2ln <- 1-sse1/ssto1
-R2ln#higher R square
 
 
-par(mfrow=c(1,2))
-roughln = trndln$residuals
-hist(roughln, main = "Histogram of rough part", xlab = "Rough part")
-qqnorm(roughln, main = "Normal probability plot of Rough")
-qqline(roughln)
+#6 
+acf(trndln$residuals) 
+pacf(trndln$residuals)
 
+#7
+aicc <- function(model){
+  n = model$nobs
+  p = length(model$coef)
+  aicc = model$aic + 2*p*(p+1)/(n-p-1)
+  return(aicc)
+}
+
+xhat = y^0.1 - fit
+for (p in 1:5){
+  for (q in 1:5){
+    cat(p, q)
+    print(aicc(arima(xhat, order = c(p, 0, q))))
+  }
+}
+
+mod_ARMA<- arima(y^0.1-fit, order =c(5,0,2))
+mod_ARMA$coef
+mod_ARMA$var.coef
+mod_ARMA$sigma2
+res <- mod_ARMA$residuals
+ts.plot(res)
+
+acf(res)
+pacf(res)
+hist(res)
+
+qqnorm(res);qqline(res)
+
+
+#8
+library(astsa)
+coef.ar <- mod_ARMA$coef[5]
+coef.ma <- mod_ARMA$coef[7]
+sigma2 <- mod_ARMA$sigma2
+mod_spec <-arma.spec(ar=coef.ar, ma=coef.ma, var.noise=sigma2, log='no')
+plot(mod_spec$freq, mod_spec$spec, type='l', xlab='Frequency', ylab='')
 ```
+
