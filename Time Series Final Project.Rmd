@@ -225,7 +225,7 @@ legend(0.3, 0.018, legend = c("Spectral", "Smoothed"), col = c("black", "green")
 #8.b
 
 rough_no7 = lny-fit
-rough_no7 = rough_no7[-c(99,100,101,102,103,104,105)]
+rough_no7 = rough_no7[-c(100,101,102,103,104,105,106)]
 mod_ARMA11 = arima(rough_no7, order = c(1,0,1))
 
 #forecast trend 
