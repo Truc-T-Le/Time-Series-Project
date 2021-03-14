@@ -129,12 +129,12 @@ par(mfrow=c(2,2))
 plot(lam,rsq,type="l",xlab="Lambda",ylab="R-sq",main="Average Ticket sales: R-square")
 
 #fitted 
-{plot.ts(y^0.1,ylab="",main='Plot: y^0.1, trend and fit')
+{plot.ts(y^0.1,ylab="",main='Plot: y^0.1,fit')
 points(tm,fit,type='l',lty=2, col="red")
 legend(175,0.070, c("data","fit"), lty=c(1,1,2))}
 
 #trend line 
-{plot.ts(y^0.1,ylab="",main='Plot: y^0.1, trend and fit')
+{plot.ts(y^0.1,ylab="",main='Plot: y^0.1, trend')
 points(tm,trend,type='l', col="purple")
 legend(175,0.070, c("data","trend"), lty=c(1,1,2))}
 
