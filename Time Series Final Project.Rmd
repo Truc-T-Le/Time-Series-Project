@@ -9,7 +9,15 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 library(MASS)
 chicago <- read.csv("chicago.csv")
+library("forecast")
 ```
+
+#I Introduction
+
+  The goal of this report is to fit a time series model to the given data, to predict the 
+
+
+
 
 ```{r, echo=FALSE}
 trndseas=function(y,seas,lam,degtrnd){
@@ -123,7 +131,10 @@ season=ff$season
 fit=ff$fit
 tm=1:106
 Day=1:7
-plot(tm, y, type = "l")
+
+plot(tm, y, type = "l",ylab="Daily Average Reciepts per Theatre",xlab="Time", main="Original Average Reciepts versus Time")
+
+
 
 par(mfrow=c(2,2))
 plot(lam,rsq,type="l",xlab="Lambda",ylab="R-sq",main="Average Ticket sales: R-square")
@@ -141,39 +152,26 @@ legend(175,0.070, c("data","trend"), lty=c(1,1,2))}
 plot(Day,season,type='l',ylab='Seasonals',main='Seasonals for 1/y^0.1')
 
 
-
+#transformed
 {
 lny <-(y)^0.1
-trndln <-loess(lny~tm, span = 0.25)
 plot(tm, lny, type = "l", lty = 1, xlab = "Time", ylab = "power of 0.1 daily average reciepts per theatre",main = "power of 0.1 daily average reciepts per theatre versus time")
-points(tm, trndln$fitted,type = "l", lty = 2, col = "blue")
-legend("topleft", "loess", lty = 2, col = "blue")
+points(tm, fit, type = "l", lty = 2, col = "blue")
+legend("topleft", "fitted values", lty = 2, col = "blue")
 }
 
-plot(trndln$residuals, type = "l", xlab = "Time", ylab = "Residuals", main = "Rough part")
+
+plot(lny-fit, type = "l", xlab = "Time", ylab = "Residuals", main = "Rough part")
 
 
 #6 
-acf(trndln$residuals) 
-pacf(trndln$residuals)
+acf(lny-fit) 
+pacf(lny-fit)
 
 #7
-aicc <- function(model){
-  n = model$nobs
-  p = length(model$coef)
-  aicc = model$aic + 2*p*(p+1)/(n-p-1)
-  return(aicc)
-}
+a<-auto.arima(xhat, stepwise = F, approximation = F, trace= TRUE, ic = "aicc", max.order = 10)
 
-xhat = y^0.1 - fit
-for (p in 1:5){
-  for (q in 1:5){
-    cat(p, q)
-    print(aicc(arima(xhat, order = c(p, 0, q))))
-  }
-}
-
-mod_ARMA<- arima(y^0.1-fit, order =c(5,0,2))
+mod_ARMA<- arima(y^0.1-fit, order =c(1,0,1))
 mod_ARMA$coef
 mod_ARMA$var.coef
 mod_ARMA$sigma2
@@ -181,18 +179,73 @@ res <- mod_ARMA$residuals
 ts.plot(res)
 
 acf(res)
-pacf(res)
 hist(res)
 
 qqnorm(res);qqline(res)
 
 
 #8
+
+specselect=function(y,kmax)
+  {
+  ii=spec.pgram(y,log="no",plot=FALSE)
+  ii=ii$spec
+  cc=norm(as.matrix(ii),type="F")^2
+  ctr=rep(1,kmax) ###criterion function
+  for(k in 1:kmax) 
+    {
+    ss=2*k+1; kk=1/(2*k)
+    ff=spec.pgram(y,spans=ss,log="no",plot=FALSE)
+    fspec=ff$spec
+    ctr[k]=norm(as.matrix(ii-fspec),type="F")^2+kk*cc
+  }
+  kopt=which.min(ctr)
+  result=list(ctr=ctr,kopt=kopt)
+  return(result)
+}
+
+specselect(lny-fit,18)
+
+
 library(astsa)
-coef.ar <- mod_ARMA$coef[5]
-coef.ma <- mod_ARMA$coef[7]
+coef.ar <- mod_ARMA$coef[1]
+coef.ma <- mod_ARMA$coef[2]
 sigma2 <- mod_ARMA$sigma2
 mod_spec <-arma.spec(ar=coef.ar, ma=coef.ma, var.noise=sigma2, log='no')
 plot(mod_spec$freq, mod_spec$spec, type='l', xlab='Frequency', ylab='')
+
+
+#8.a
+{arma.spec(ar=coef.ar, ma=coef.ma,var.noise = sigma2, log = "no",main="Spectral Density and Smooth Periodogram")
+smooth<-spec.pgram(lny-fit, log = "no", spans = 11, main="", xlab="", ylab="", plot=F )
+lines(smooth$freq, smooth$spec, col = "green")
+legend(0.3, 0.018, legend = c("Spectral", "Smoothed"), col = c("black", "green"), lty = 1, cex = 0.8)}
+
+
+#8.b
+
+rough_no7 = lny-fit
+rough_no7 = rough_no7[-c(99,100,101,102,103,104,105)]
+mod_ARMA11 = arima(rough_no7, order = c(1,0,1))
+
+#forecast trend 
+
+library(Hmisc)
+row_old = 1:99
+row_pred = c(100,101,102,103,104,105,106) 
+trend_pred = approxExtrap(row_old, ff$trend, xout= row_pred)$y
+
+season_pred = rep(ff$season, length.out = length(chicago$reciepts))[-(1:99)]
+
+forecast = predict(mod_ARMA11, n.ahead = 7)
+x_fc = forecast$pred
+
+truepredicted = x_fc+trend_pred+season_pred
+untransform_predict = truepredicted^10
+{plot(c(100,101,102,103,104,105,106), chicago$reciepts[100:106], col = "red", main = "Observed and Predicted Values", xlab = "Time", ylab = "Receipts", ylim = c(0,900))
+points(c(100,101,102,103,104,105,106),untransform_predict, col = "green")
+legend(102, 700, legend = c("Observed", "Predicted"), col = c("red", "green"), pch = 1, cex = 0.8)}
+```
+
 ```
 
