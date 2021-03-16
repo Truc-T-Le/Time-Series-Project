@@ -1,121 +1,38 @@
 ---
-title: "Time Series FInal Project"
-author: "Truc Le"
-date: "3/8/2021"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document: default
 ---
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(MASS)
-chicago <- read.csv("chicago.csv")
-library("forecast")
+source("https://raw.githubusercontent.com/Truc-T-Le/Time-Series-Project/main/trndseas.R")
+chicago <- read.csv("https://raw.githubusercontent.com/Truc-T-Le/Time-Series-Project/main/chicago.csv")
 ```
 
-#I Introduction
+# I. Introduction: Statement of the Problem
 
-  The goal of this report is to fit a time series model to the given data, to predict the 
+The goal of this report is to fit a time series model to the Chicago dataset in order to predict the daily average reciepts per theatres for the movie Chicago for the given four and a half months time period. The dataset contains the daily average reciepts per theatres for the movie Chicago from January 3, 2003 up until April 18, 2003, and it is considered a time series since the data was taken over a period of time within equaled spaced increments. Time series modeling is important for this dataset as it can forecast the data points outside of the given time intervals by using model it already created from the current data points it possess. However, there are constraints to this time series prediction model, it is illogical to forecast before the movie was released and after it is no longer in theatre as it would give inaccurate predictions for the daily average reciepts per theatres. In addition, like any time series model, it should be noted that any forecasting farther away from the given model would have a higher probability of incurracy in predicting the daily average reciepts per theatres for the movie Chicago.
 
+\newpage
 
+# II. Materials and Methods: Description of the Data and Methods Used in the Analysis
 
+For this project, we were provided a file (`Chicago.txt`), which contains daily average receipts (`Receipts`) per theater for the movie Chicago. The data covers the time period January 3, 2003 to April 23, 2003 (time $t = 1,...,106$). 
 
-```{r, echo=FALSE}
-trndseas=function(y,seas,lam,degtrnd){
+A simple plot of `Receipts` against `t`:
 
-    
-# requires the R-package 'pracma'
-  
-# fits  a trend plus seasonal for the "best" Box-Cox 
-# transformation.
-  
-# input: y, observed series; seas, seasons
-  
-# input: lam, the grid of Box-Cox transformations (lambda values)
-  
-# input: degtrnd, degree of the polynomial trend, if
-# degtrnd=0, then the fitted trend is constant.
-  
-# output:  coef, regression coefficients - the
-# first degtrnd+1 values for the trend part and the
-# rest associated with the seasonals
-  
-# output: fit, fitted y-values; res, residuals,
-  
-# output: trend, fitted trend; season, fitted seasonals
-  
-# output: rsq, adjusted r-square values for different lambda in the
-  
-# output: lamopt, the value of lambda (among those supplied 
-# in the vector lam) at which r-square is maximum.
-
-m=length(lam)
-n=length(y)
-
-# Part of design matrix for estimating trend
-if(degtrnd>0) {
-   tm=seq(1/n,1,by=1/n)
-   x1=poly(tm,degree=degtrnd,raw=TRUE)
-   x1=cbind(rep(1,n),x1)
-   } else {
-    x1=as.matrix(rep(1,n),ncol=1)
-   }
-
-# Part of design matrix for estimating seasonality
-x2=NULL
-if(seas>1){
-sn=rep(1:seas,length.out=n)
-x2=factor(sn,levels=unique(sn),ordered=TRUE)
-x2=model.matrix(~x2-1)
-m2=ncol(x2)
-m21=m2-1
-x2=x2[,1:m21]-matrix(rep(x2[,m2],m21),ncol=m21,nrow=nrow(x2),byrow=F)
-}
-
-x=cbind(x1,x2)  # design matrix
-
-xx=t(x)%*%x
-rsq=rep(1,m)
-m1=ncol(x1)     #degtrnd+1
-m11=m1+1
-mx=ncol(x)      # degtrnd+1+seas-1
-
-for(i in 1:m) {
-  if (lam[i]==0) {
-    yt=log(y)
-  } else {
-    yt=y^lam[i]
-   }
-  xy=t(x)%*%yt
-  coef=solve(xx,xy)
-  fit=x%*%coef
-  res=yt-fit
-  ssto=(n-1)*var(yt)
-  sse=t(res)%*%res
-  rsq[i]=1-((n-1)/(n-mx))*sse/ssto
-  }
-
-  ii=which.max(rsq)
-  lamopt=lam[ii]
-  if (lamopt==0) {
-    yt=log(y)
-  } else {
-    yt=y^lamopt
-   }
-  xy=t(x)%*%yt
-  coef=solve(xx,xy)
-  fit=x%*%coef
-  trnd=x1%*%coef[1:m1]
-  season=NULL
-  if(seas>1){
-  season=c(coef[m11:mx],-sum(coef[m11:mx]))
-  }
-  res=yt-fit
-
-  result=list(coef=coef,fitted=fit,trend=trnd,residual=res,season=season,rsq=rsq,lamopt=lamopt)
-  return(result)
-}
-  
+```{r}
+y <- chicago$reciepts
+t <- 1:106
+plot(t, y, type = "l", ylab = "Receipts", main = "Plot of Receipts against t")
 ```
+
+From the `Plot of Receipts against t`, we can observe that `Receipts` seems to have trend, seasonal, and rough components. One problem that we see is that the spread of `Receipts` changes over time (i.e. the variance is not constant). To address this problem, we will first apply a Box-Cox transformation, which will hopefully make the spread of `Receipts` constant throughout time. 
+
+To fit a time-series model to the dataset, we will use the model $Y_t = m_t + s_t + X_t, \ t = 1,...,n = 106$, where $Y_t$ denotes `Receipts`, $m_t$ denotes the trend, $s_t$ denotes the seasonal component, and $X_t$ denotes the rough part. To estimate $m_t$ and $s_t$, we will use the function `trndseas()`, which was provided to us in the file `trndseas.R`. After obtaining the $\hat{m}_t$ and $\hat{s}_t$ (the estimated trend and seasonal effects respectively), we can estimate the rough by subtracting the estimated trend and seasonal effects from the observed values (i.e. $\hat{X}_t = Y_t - \hat{m}_t - \hat{s}_t$). After obtaining the estimated rough, we will use `auto.arima()` to find the best ARMA model. This ARMA model will then be used to estimate the rough in the time-series prediction model. 
+
+# III. Results: Explanation of the Results in our Analysis
 
 ```{r, echo=FALSE}
 #3/4/5
@@ -135,6 +52,14 @@ Day=1:7
 plot(tm, y, type = "l",ylab="Daily Average Reciepts per Theatre",xlab="Time", main="Original Average Reciepts versus Time")
 
 
+
+```
+
+From the graph above, it is observed that there is some kind of trend and seasonality present within the dataset, with a cycle of about 7 days. However, there is no consistent mean and variance within the data, with both the mean and variance decreasing overtime. In order to fit a time series model to the dataset, the general model of observe = trend + seasonality + rough will be use to create the prediction model. In the intial step, both the trend and seasonality will be estimated using the trndseas function, and after, the estimated trend and seasonality will be use to estimate for the rough. After obtaining the rough, the auto.arima function is used to find the best model and its coefficients use for the time series prediction model.
+
+#III. Results
+
+```{r, echo=FALSE}
 
 par(mfrow=c(2,2))
 plot(lam,rsq,type="l",xlab="Lambda",ylab="R-sq",main="Average Ticket sales: R-square")
@@ -247,5 +172,53 @@ points(c(100,101,102,103,104,105,106),untransform_predict, col = "green")
 legend(102, 700, legend = c("Observed", "Predicted"), col = c("red", "green"), pch = 1, cex = 0.8)}
 ```
 
+
+
+```{r}
+mod_ARMA<- arima(y^0.1-fit, order =c(5,0,2))
+mod_ARMA$coef
+mod_ARMA$var.coef
+mod_ARMA$sigma2
+res <- mod_ARMA$residuals
+ts.plot(res)
+
+acf(res)
+pacf(res)
+hist(res)
+
+qqnorm(res);qqline(res)
+
+
+#8
+library(astsa)
+coef.ar <- mod_ARMA$coef[5]
+coef.ma <- mod_ARMA$coef[7]
+sigma2 <- mod_ARMA$sigma2
+mod_spec <-arma.spec(ar=coef.ar, ma=coef.ma, var.noise=sigma2, log='no')
+plot(mod_spec$freq, mod_spec$spec, type='l', xlab='Frequency', ylab='')
+```
+
+```{r}
+rough_no7 = lny-fit
+rough_no7 = rough_no7[-c(100,101,102,103,104,105, 106)]
+mod_ARMA11 = arima(rough_no7, order = c(1,0,1))
+
+#forecast trend 
+
+library(Hmisc)
+row_old = 1:99
+row_pred = c(100,101,102,103,104,105, 106) 
+trend_pred = approxExtrap(row_old, ff$trend, xout= row_pred)$y
+
+season_pred = rep(ff$season, length.out = length(chicago$reciepts))[-(1:99)]
+
+forecast = predict(mod_ARMA11, n.ahead = 7)
+x_fc = forecast$pred
+
+truepredicted = x_fc+trend_pred+season_pred[1:7]
+untransform_predict = truepredicted^10
+{plot(c(100,101,102,103,104,105, 106), chicago$reciepts[100:106], col = "red", main = "Observed and Predicted Values", xlab = "Time", ylab = "Receipts", ylim = c(0,900))
+points(c(100,101,102,103,104,105, 106),untransform_predict, col = "green")
+legend(102, 700, legend = c("Observed", "Predicted"), col = c("red", "green"), pch = 1, cex = 0.8)}
 ```
 
