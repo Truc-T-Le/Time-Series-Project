@@ -153,23 +153,34 @@ Day=1:7
 plot(lam,rsq,type="l",xlab="Lambda",ylab="R-sq",main="Average Ticket sales: R-square")
 ```
 
-As previously discussed, due to the inconsistent variance observed from the `Plot of Receipts against t`, it is necessary to perform a Box-Cox transformation on the original data before a time series model could be fitted. In order to choose an appropiate Box-Cox transformation, the optimal lambda must be picked first. When picking for the optimal lambda, the 
+As previously discussed, due to the inconsistent variance observed from the `Plot of Receipts against t`, it is necessary to perform a Box-Cox transformation on the original data before a time series model could be fitted. In order to choose an appropiate Box-Cox transformation, the optimal lambda must be picked first. To find the optimal lambda value, a `Lambda vs. R-squared plot` is contructed to approximate the interval of where the optimal lambda is in. As seen in the `Lambda vs. R-squared plot`, it is observed that the optimal lambda is within the interval of [-1,1], therefore, every values in increment of 0.05 from -1 to 1 was taken to find the optimal lambda values using the `trndseas()` function. The result from the `trndseas()` function shows that the optimal lambda value is 0.1. The data is transformed using the $X_t^{\lambda}$ transformation model since the calculated optimal lambda in this case is not equal to 0.
 
 ```{r, echo=FALSE}
 
 
 #fitted 
-{plot.ts(y^0.1,ylab="",main='Plot: y^0.1,fit')
+{plot.ts(y^0.1,ylab="Receipts^0.1",main='Plot: Transformed and Fitted')
 points(tm,fit,type='l',lty=2, col="red")
-legend(175,0.070, c("data","fit"), lty=c(1,1,2))}
+legend(80,2.4, c("transformed","fit"), lty=c(1,1,2), col=c("black", "red"))}
 
+```
+As observed from the black line (transformed) in `Plot: Transformed and Fitted` the transformed data gives a more consistent variance when compared to the original data as seen in the `Plot of Receipts against t`. Therefore, this newly transformed data will be use to fit the time series model moving forward. 
+
+```{r, echo=FALSE}
+par(mfrow=c(1,2))
 #trend line 
-{plot.ts(y^0.1,ylab="",main='Plot: y^0.1, trend')
+{plot.ts(y^0.1,ylab="",main='Plot:Transformed and Trend')
 points(tm,trend,type='l', col="purple")
-legend(175,0.070, c("data","trend"), lty=c(1,1,2))}
+legend(70,2.4, c("transformed","trend"), lty=c(1,1,2), col=c("black", "purple"))}
 
 plot(Day,season,type='l',ylab='Seasonals',main='Seasonals for 1/y^0.1')
+```
 
+The next step after transforming the data using the optimal lambda value of 0.1, the trend and the seasonality components of the transformed dataset, $m_t$ and $s_t$, were estimated using the `trndseas()` function. As observed in the `Transformed and Trend` plot above, the estimated polynomial of degree 3 trend line fits the transformed data very well.  
+
+
+
+```{r, echo=FALSE}
 
 #transformed
 {
