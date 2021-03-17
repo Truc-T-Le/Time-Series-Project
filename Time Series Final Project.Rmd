@@ -10,7 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(MASS)
 source("https://raw.githubusercontent.com/Truc-T-Le/Time-Series-Project/main/trndseas.R")
 chicago <- read.csv("https://raw.githubusercontent.com/Truc-T-Le/Time-Series-Project/main/chicago.csv")
-library("forecast")
+library(forecast)
+library(astsa)
 ```
 
 #I Introduction
@@ -164,56 +165,66 @@ points(tm,fit,type='l',lty=2, col="red")
 legend(80,2.4, c("transformed","fit"), lty=c(1,1,2), col=c("black", "red"))}
 
 ```
+
 As observed from the black line (transformed) in `Plot: Transformed and Fitted` the transformed data gives a more consistent variance when compared to the original data as seen in the `Plot of Receipts against t`. Therefore, this newly transformed data will be use to fit the time series model moving forward. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.width=10}
 par(mfrow=c(1,2))
 #trend line 
-{plot.ts(y^0.1,ylab="",main='Plot:Transformed and Trend')
+{plot.ts(y^0.1,ylab="",main='Estimated Trend')
 points(tm,trend,type='l', col="purple")
-legend(70,2.4, c("transformed","trend"), lty=c(1,1,2), col=c("black", "purple"))}
+legend(60,2.4, c("transformed","trend"), lty=c(1,1,2), col=c("black", "purple"))}
 
-plot(Day,season,type='l',ylab='Seasonals',main='Seasonals for 1/y^0.1')
+plot(Day,season,type='l',ylab='Seasonals (Receipts^0.1)',main='Estimated Seasonal Component')
 ```
 
-The next step after transforming the data using the optimal lambda value of 0.1, the trend and the seasonality components of the transformed dataset, $m_t$ and $s_t$, were estimated using the `trndseas()` function. As observed in the `Transformed and Trend` plot above, the estimated polynomial of degree 3 trend line fits the transformed data very well.  
+
+The next step after transforming the data using the optimal lambda value of 0.1, the trend and the seasonality components of the transformed dataset, $m_t$ and $s_t$, were estimated using the `trndseas()` function. As observed in the `Estimated Trend` plot above, the estimated polynomial of degree 3 trend line fits the transformed data very well, as it lays superimposed over the middle of the transformed data while following the decreasing trend that the transformed line go through overtime. In addition, from the `Estimated Seasonals for 1/y^0.1` plot, which only show one cycle, it can be observed that seasonality occured in a cycle of 7 days before the cycle restarts again. 
 
 
 
 ```{r, echo=FALSE}
-
-#transformed
-{
-lny <-(y)^0.1
-plot(tm, lny, type = "l", lty = 1, xlab = "Time", ylab = "power of 0.1 daily average reciepts per theatre",main = "power of 0.1 daily average reciepts per theatre versus time")
-points(tm, fit, type = "l", lty = 2, col = "blue")
-legend("topleft", "fitted values", lty = 2, col = "blue")
-}
-
-
-plot(lny-fit, type = "l", xlab = "Time", ylab = "Residuals", main = "Rough part")
-
-
 #6 
-acf(lny-fit) 
-pacf(lny-fit)
 
+y_0.1 <-(y)^0.1
+acf(y_0.1-fit) 
+```
+
+
+From the ACF plot of $X_t$, it is observed that the ACF values almost seem to be monotonously decreasing. There are some lags here and there where this observation does not hold true, but in general, the ACF values from lags 1 through 20 seem to be decreasing. Initially, lags 1 through 6 are significant. The lags then become insignificant, but they return to being significant at lag 18, and continue to be significant until lag 20. Based on the ACF plot, we should not model $X_t$ using an MA model.
+
+```{r, echo=FALSE}
+pacf(y_0.1-fit)
+```
+From the PACF plot of $X_t$, it is observed that there are not many significant lags. Lags 1, 14, and 16 are significant. If it is believed that lags 14 and 16 are not truly significant, but only appear significant due to randomness, then $X_t$ could be modeled using an AR(1) model. However, if lags 14 and 16 are truly significant, then $X_t$ cannot be modeled using an AR(1) model.
+
+```{r, echo=FALSE}
+qqnorm(y_0.1-fit);qqline(y_0.1-fit)
+
+```
+
+```{r, echo=FALSE}
+
+plot(y_0.1-fit, type = "l", xlab = "Time", ylab = "Rough", main = "Rough part")
+```
+
+From the plot of $\hat{X}_t$ against time, it is observed that the the rough seems to have constant mean. The variance of the rough, on the other hand, does not appear to be constant. $\hat{X}_{18}$ appears to be an "outlier" when compared with the other estimated roughs because it is much further away than the other estimated roughs. This is concerning because it suggests that the roughs do not have constant variance, and would thus violate the requirements for a weak stationary series. Other than this one outlier, however, the variance seems to be constant. 
+
+```{r, echo=FALSE}
 #7
-a<-auto.arima(lny-fit, stepwise = F, approximation = F, trace= TRUE, ic = "aicc", max.order = 10)
+a<-auto.arima(y_0.1-fit, stepwise = F, approximation = F, trace= TRUE, ic = "aicc", max.order = 10)
 
 mod_ARMA<- arima(y^0.1-fit, order =c(1,0,1))
 mod_ARMA$coef
 mod_ARMA$var.coef
 mod_ARMA$sigma2
 res <- mod_ARMA$residuals
-ts.plot(res)
 
 acf(res)
-hist(res)
 
-qqnorm(res);qqline(res)
+```
 
-
+```{r, echo=FALSE}
 #8
 
 specselect=function(y,kmax)
@@ -234,7 +245,7 @@ specselect=function(y,kmax)
   return(result)
 }
 
-specselect(lny-fit,18)
+specselect(y_0.1-fit,18)
 
 
 library(astsa)
@@ -247,14 +258,16 @@ plot(mod_spec$freq, mod_spec$spec, type='l', xlab='Frequency', ylab='')
 
 #8.a
 {arma.spec(ar=coef.ar, ma=coef.ma,var.noise = sigma2, log = "no",main="Spectral Density and Smooth Periodogram")
-smooth<-spec.pgram(lny-fit, log = "no", spans = 11, main="", xlab="", ylab="", plot=F )
+smooth<-spec.pgram(y_0.1-fit, log = "no", spans = 11, main="", xlab="", ylab="", plot=F )
 lines(smooth$freq, smooth$spec, col = "green")
 legend(0.3, 0.018, legend = c("Spectral", "Smoothed"), col = c("black", "green"), lty = 1, cex = 0.8)}
 
+```
 
+```{r, echo=FALSE}
 #8.b
 
-rough_no7 = lny-fit
+rough_no7 = y_0.1-fit
 rough_no7 = rough_no7[-c(100,101,102,103,104,105,106)]
 mod_ARMA11 = arima(rough_no7, order = c(1,0,1))
 
@@ -277,5 +290,19 @@ points(c(100,101,102,103,104,105,106),untransform_predict, col = "green")
 legend(102, 700, legend = c("Observed", "Predicted"), col = c("red", "green"), pch = 1, cex = 0.8)}
 ```
 
+In the `Observed and Predicted Values` plot above, the ARMA(1,1) model is fitted to the estimated rough with the exception of the last 7 days. The last 7 days were forcasted by using the estimated rough, and adding the 7 observations from the estimated rough to the estimated trend and estimated seasonality to get the prediction values. The 7 forecasted values were than plotted against the observed values on the same graph to observe how close the preditions were to observed values. As seen from the `Observed and Predicted Values` plot, the forecasted values using the ARMA(1,1) model gave a fairly accurate prediction for the last 7 days when compared to the observed values. 
+
+#IV. Conclusion and Discussion 
+
+The objective of this report is to analyze daily average receipts per theater for the movie Chicago (Receipts) using time series methods. First, a Box-Cox transformation was applied to Receipts so that the variance of Receipts would be more constant overtime. Then, the trend $m_t$ and the seasonal components $s_t$ were estimated using the provided function trndseas(). After obtaining $\hat{m}_t$ and $\hat{s}_t$, the estimated rough $\hat{X}_t$ was obtained by subtracting $\hat{m}_t$ and $\hat{s}_t$ from transformed values of Receipts. 
+
+Next, using the AICC criterion andauto.arima(), an ARMA(1,1) model was selected to model $X_t$. Subsequent plots of the residuals of the ARMA(1,1) model show that there are no significant lags. This indicates that the ARMA(1,1) model is a good model for $X_t$. 
+
+Then, the spectral density function of the ARMA(1,1) model and a smoothed periodogram were plotted on the same graph. Using specselect(), a function provided in the discussion handout, it is observed that the most appropriate smoothed periodogram is when span = 11 (k = 5). At this span, the smoothed periodogram achieves a balance between smoothing the periodogram and preserving detail. 
+
+Finally, using all the data except for the last 7 days, the ARMA(1,1) model was refitted. This model was used to forecast the last 7 observations. While the predictions were not perfect, they came considerably close to the true observed values.
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+# this is the code appendix 
 ```
 
