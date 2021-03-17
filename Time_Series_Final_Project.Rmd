@@ -80,7 +80,7 @@ plot(Day,season,type='l',ylab='Seasonals (Receipts^0.1)',main='Estimated Seasona
 ```
 
 
-The next step after transforming the data using the optimal lambda value of 0.1, the trend and the seasonality components of the transformed dataset, $m_t$ and $s_t$, were estimated using the `trndseas()` function. As observed in the `Estimated Trend` plot above, the estimated polynomial of degree 3 trend line fits the transformed data very well, as it lays superimposed over the middle of the transformed data while following the decreasing trend that the transformed line go through overtime. In addition, from the `Estimated Seasonals for 1/y^0.1` plot, which only show one cycle, it can be observed that seasonality occured in a cycle of 7 days before the cycle restarts again.
+The next step after transforming the data using the optimal lambda value of 0.1, the trend and the seasonality components of the transformed dataset, $m_t$ and $s_t$, were estimated using the `trndseas()` function. As observed in the `Estimated Trend` plot above, the estimated polynomial of degree 3 trend line fits the transformed data very well, as it lays superimposed over the middle of the transformed data while following the decreasing trend that the transformed line go through overtime. In addition, from the `Estimated Seasonals Component` plot, which only show one cycle, it can be observed that seasonality occured in a cycle of 7 days before the cycle restarts again.
 
 ```{r, echo=FALSE}
 #6 
@@ -110,9 +110,11 @@ plot(y_0.1-fit, type = "l", xlab = "Time", ylab = "Rough", main = "Rough part")
 
 From the plot of $\hat{X}_t$ against time, it is observed that the the rough seems to have constant mean. The variance of the rough, on the other hand, does not appear to be constant. $\hat{X}_{18}$ appears to be an "outlier" when compared with the other estimated roughs because it is much further away than the other estimated roughs. This is concerning because it suggests that the roughs do not have constant variance, and would thus violate the requirements for a weak stationary series. Other than this one outlier, however, the variance seems to be constant. 
 
+
+Based auto.arima and using the AICC criterion, the most appropriate model for $\hat{X}_t$ is ARMA(1,1).
 ```{r, echo=FALSE}
 #7
-a = auto.arima(y_0.1-fit, stepwise = F, approximation = F, ic = "aicc", max.order = 10)
+auto.arima(y_0.1-fit, stepwise = F, approximation = F, ic = "aicc", max.order = 10)
 
 mod_ARMA<- arima(y^0.1-fit, order =c(1,0,1))
 c<-mod_ARMA$coef
@@ -120,6 +122,8 @@ d<-mod_ARMA$var.coef
 e<-mod_ARMA$sigma2
 
 ```
+
+The ACF plot of the residuals:
 
 ```{r, echo=FALSE}
 res <- mod_ARMA$residuals
@@ -130,7 +134,8 @@ acf(res)
 
 The ACF plot of the residuals of the ARMA(1,1) model show that the residuals seem to be independent. The only lag that is significant (other than lag 0 ) is lag 14. However, lag 14 is only barely significant and can be attributed to randomness. Therefore, it seems that the residuals of the ARMA(1,1) model is white noise and independent of one another. Thus, it seems that the ARMA(1,1) is an appropriate model for $\hat{X}_t$.
 
-```{r, echo=FALSE, message=FALSE}
+
+```{r, echo=FALSE, message=FALSE, results='hide'}
 #8
 
 specselect=function(y,kmax)
@@ -157,10 +162,11 @@ b<-specselect(y_0.1-fit,18)
 coef.ar <- mod_ARMA$coef[1]
 coef.ma <- mod_ARMA$coef[2]
 sigma2 <- mod_ARMA$sigma2
-mod_spec <-arma.spec(ar=coef.ar, ma=coef.ma, var.noise=sigma2, log='no')
-#splot(mod_spec$freq, mod_spec$spec, type='l', xlab='Frequency', ylab='')
+mod_spec <-arma.spec(ar=coef.ar, ma=coef.ma, var.noise=sigma2, log='no', main = "Spectral Density Graph for the ARMA(1,1) model" )
 
+```
 
+```{r, echo=FALSE}
 #8.a
 {arma.spec(ar=coef.ar, ma=coef.ma,var.noise = sigma2, log = "no",main="Spectral Density and Smooth Periodogram")
 smooth<-spec.pgram(y_0.1-fit, log = "no", spans = 11, main="", xlab="", ylab="", plot=F )
