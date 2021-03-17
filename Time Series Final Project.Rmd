@@ -1,7 +1,4 @@
 ---
-title: "Time Series FInal Project"
-author: "Truc Le"
-date: "3/8/2021"
 output: pdf_document
 ---
 
@@ -12,6 +9,7 @@ source("https://raw.githubusercontent.com/Truc-T-Le/Time-Series-Project/main/trn
 chicago <- read.csv("https://raw.githubusercontent.com/Truc-T-Le/Time-Series-Project/main/chicago.csv")
 library(forecast)
 library(astsa)
+library(Hmisc)
 ```
 
 #I Introduction
@@ -212,9 +210,9 @@ plot(y_0.1-fit, type = "l", xlab = "Time", ylab = "Rough", main = "Rough part")
 
 From the plot of $\hat{X}_t$ against time, it is observed that the the rough seems to have constant mean. The variance of the rough, on the other hand, does not appear to be constant. $\hat{X}_{18}$ appears to be an "outlier" when compared with the other estimated roughs because it is much further away than the other estimated roughs. This is concerning because it suggests that the roughs do not have constant variance, and would thus violate the requirements for a weak stationary series. Other than this one outlier, however, the variance seems to be constant. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, message=FALSE}
 #7
-a<-auto.arima(y_0.1-fit, stepwise = F, approximation = F, trace= TRUE, ic = "aicc", max.order = 10)
+a=auto.arima(y_0.1-fit, stepwise = F, approximation = F, trace= TRUE, ic = "aicc", max.order = 10)
 
 mod_ARMA<- arima(y^0.1-fit, order =c(1,0,1))
 c<-mod_ARMA$coef
@@ -228,7 +226,7 @@ acf(res)
 
 The ACF plot of the residuals of the ARMA(1,1) model show that the residuals seem to be independent. The only lag that is significant (other than lag 0 ) is lag 14. However, lag 14 is only barely significant and can be attributed to randomness. Therefore, it seems that the residuals of the ARMA(1,1) model is white noise and independent of one another. Thus, it seems that the ARMA(1,1) is an appropriate model for $\hat{X}_t$.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, message=FALSE}
 #8
 
 specselect=function(y,kmax)
@@ -252,6 +250,9 @@ specselect=function(y,kmax)
 b<-specselect(y_0.1-fit,18)
 
 
+```
+
+```{r, echo=FALSE}
 library(astsa)
 coef.ar <- mod_ARMA$coef[1]
 coef.ma <- mod_ARMA$coef[2]
@@ -279,7 +280,6 @@ mod_ARMA11 = arima(rough_no7, order = c(1,0,1))
 
 #forecast trend 
 
-library(Hmisc)
 row_old = 1:99
 row_pred = c(100,101,102,103,104,105,106) 
 trend_pred = approxExtrap(row_old, ff$trend, xout= row_pred)$y
@@ -308,6 +308,8 @@ Then, the spectral density function of the ARMA(1,1) model and a smoothed period
 
 Finally, using all the data except for the last 7 days, the ARMA(1,1) model was refitted. This model was used to forecast the last 7 observations. While the predictions were not perfect, they came considerably close to the true observed values.
 
+
+#Appendix 
 ```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
 # this is the code appendix 
 ```
