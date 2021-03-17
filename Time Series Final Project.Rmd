@@ -203,6 +203,8 @@ qqnorm(y_0.1-fit);qqline(y_0.1-fit)
 
 ```
 
+The normal Q-Q plot of $\hat{X}_t$ shows that the roughs seem fairly normal, with the exception of the single outlier on the top right hand corner. While not all the points lie perfectly on the theorectical line, they also do not deviate too much from the line. However, because of the outlier and slight deviation from the theoretical line, we cannot say with confidence that $\hat{X}_t$ is normally distributed.
+
 ```{r, echo=FALSE}
 
 plot(y_0.1-fit, type = "l", xlab = "Time", ylab = "Rough", main = "Rough part")
@@ -215,14 +217,16 @@ From the plot of $\hat{X}_t$ against time, it is observed that the the rough see
 a<-auto.arima(y_0.1-fit, stepwise = F, approximation = F, trace= TRUE, ic = "aicc", max.order = 10)
 
 mod_ARMA<- arima(y^0.1-fit, order =c(1,0,1))
-mod_ARMA$coef
-mod_ARMA$var.coef
-mod_ARMA$sigma2
+c<-mod_ARMA$coef
+d<-mod_ARMA$var.coef
+e<-mod_ARMA$sigma2
 res <- mod_ARMA$residuals
 
 acf(res)
 
 ```
+
+The ACF plot of the residuals of the ARMA(1,1) model show that the residuals seem to be independent. The only lag that is significant (other than lag 0 ) is lag 14. However, lag 14 is only barely significant and can be attributed to randomness. Therefore, it seems that the residuals of the ARMA(1,1) model is white noise and independent of one another. Thus, it seems that the ARMA(1,1) is an appropriate model for $\hat{X}_t$.
 
 ```{r, echo=FALSE}
 #8
@@ -245,7 +249,7 @@ specselect=function(y,kmax)
   return(result)
 }
 
-specselect(y_0.1-fit,18)
+b<-specselect(y_0.1-fit,18)
 
 
 library(astsa)
@@ -253,16 +257,18 @@ coef.ar <- mod_ARMA$coef[1]
 coef.ma <- mod_ARMA$coef[2]
 sigma2 <- mod_ARMA$sigma2
 mod_spec <-arma.spec(ar=coef.ar, ma=coef.ma, var.noise=sigma2, log='no')
-plot(mod_spec$freq, mod_spec$spec, type='l', xlab='Frequency', ylab='')
+#splot(mod_spec$freq, mod_spec$spec, type='l', xlab='Frequency', ylab='')
 
 
 #8.a
 {arma.spec(ar=coef.ar, ma=coef.ma,var.noise = sigma2, log = "no",main="Spectral Density and Smooth Periodogram")
 smooth<-spec.pgram(y_0.1-fit, log = "no", spans = 11, main="", xlab="", ylab="", plot=F )
 lines(smooth$freq, smooth$spec, col = "green")
-legend(0.3, 0.018, legend = c("Spectral", "Smoothed"), col = c("black", "green"), lty = 1, cex = 0.8)}
+legend(0.3, 0.010, legend = c("Spectral", "Smoothed"), col = c("black", "green"), lty = 1, cex = 0.8)}
 
 ```
+
+The `Spectral Density and Smooth Periodogram` plot shows the smooth periodogram and the spectral density function of the fitted ARMA(1,1) model that was choosen to be the best model through the AIC criterion. As observed from teh graph above, the smooth periodogram estimates the spectral density function fairly accurately, with the two biggest deviations located approximately at the frequency intrervals of [0.05, 0.075] and [0.2, 0.25]. Aside from the two deviations, the smooth periodogram does not deviate much from the spectral density functions line as shown above. 
 
 ```{r, echo=FALSE}
 #8.b
